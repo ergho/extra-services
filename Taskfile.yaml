@@ -1,0 +1,38 @@
+---
+version: "3"
+
+vars:
+  # renovate: datasource=github-releases depName=getsops/sops
+  SOPS_VERSION: v3.8.1
+
+includes:
+  app: ./apps
+
+tasks:
+  default:
+    silent: true
+    cmd: go-task -l
+  
+  deps:
+    desc: Install deps for system
+    cmds:
+      - sudo rpm-ostree install --idempotent --assumeyes age bind-utils direnv expect fastfetch fish fzf gh git go-task gron htop moreutils neovim net-tools netcat nmap rsync systemd-networkd tcpdump telnet tree wget yq zoxide
+      - # Direnv
+        |
+        mkdir -p /home/$LOGNAME/.config/direnv && \
+        tee /home/$LOGNAME/.config/direnv/direnv.toml > /dev/null <<EOF
+        [whitelist]
+        prefix = [ "/var/opt/home-service" ]
+        EOF
+    preconditions:
+      - msg: must not be run as root
+        sh: '[[ $LOGNAME != "root" ]]'
+
+  stop-*:
+    desc: Stop a container service
+    cmd: sudo systemctl stop {{.container}}
+    vars:
+      container: '{{index .MATCH 0}}'
+    preconditions:
+      - msg: container systemd service '{{.container}}' not found
+        sh: systemctl status {{.container}}
