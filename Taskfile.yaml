@@ -29,6 +29,29 @@ tasks:
       - msg: must not be run as root
         sh: '[[ $LOGNAME != "root" ]]'
 
+  start-*:
+    desc: Start a container service
+    cmds:
+      - task: reload-{{.container}}
+      - sudo systemctl start {{.container}}
+      - sudo systemctl is-active --quiet {{.container}} || exit 1
+      - sudo podman ps --all --filter name={{.container}} --format "{{ `{{.Names}} - {{.Image}} - {{.Status}}` }}"
+    vars:
+      container: '{{index .MATCH 0}}'
+
+  restart-*:
+    desc: Restart a container service
+    cmds:
+      - task: reload-{{.container}}
+      - sudo systemctl restart {{.container}}
+      - sudo systemctl is-active --quiet {{.container}} || exit 1
+      - sudo podman ps --all --filter name={{.container}} --format "{{ `{{.Names}} - {{.Image}} - {{.Status}}` }}"
+    vars:
+      container: '{{index .MATCH 0}}'
+    preconditions:
+      - msg: container systemd service '{{.container}}' not found
+        sh: systemctl status {{.container}}
+
   status-*:
     desc: Status of a container service
     cmd: sudo systemctl status {{.container}}
@@ -69,3 +92,16 @@ tasks:
         sh: test -d {{.ROOT_DIR}}/apps/{{.container}}/data
     vars:
       container: '{{index .MATCH 0}}'
+
+  remove-*:
+    desc: Remove a container service
+    prompt: Remove the '{{.container}}' container ... continue?
+    cmds:
+      - task: stop-{{.container}}
+      - sudo rm /etc/containers/systemd/{{.container}}.container
+      - sudo rm -rf /etc/containers/systemd/{{.container}}
+      - sudo rm -rf /run/systemd/generator/{{.container}}.service
+      - sudo systemctl daemon-reload
+    vars:
+      container: '{{index .MATCH 0}}'
+
